@@ -14,11 +14,3 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
-
-logging:
-  level:
-    root: DEBUG
-    com.example.langchat: DEBUG
-#    org.springframework: INFO
-#    org.hibernate.SQL: DEBUG
-#    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
