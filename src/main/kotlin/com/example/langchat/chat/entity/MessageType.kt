@@ -1,4 +1,4 @@
-package com.example.langchat.chat.domain
+package com.example.langchat.chat.entity
 
 enum class MessageType {
     CHAT, // 일반 채팅 메시지

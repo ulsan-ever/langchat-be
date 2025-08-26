@@ -1,6 +1,6 @@
 package com.example.langchat.chat.controller
 
-import com.example.langchat.chat.domain.ChatMessage
+import com.example.langchat.chat.entity.ChatMessage
 import org.springframework.messaging.handler.annotation.MessageMapping
 import org.springframework.messaging.handler.annotation.Payload
 import org.springframework.messaging.handler.annotation.SendTo

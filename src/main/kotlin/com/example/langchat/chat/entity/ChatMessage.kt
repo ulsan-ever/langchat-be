@@ -1,4 +1,4 @@
-package com.example.langchat.chat.domain
+package com.example.langchat.chat.entity
 
 data class ChatMessage (
     val sender: String,
