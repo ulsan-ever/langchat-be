@@ -1,67 +1,88 @@
 package com.example.langchat.auth.controller
 
-import com.example.langchat.auth.dto.KakaoTokenResDto
-import com.example.langchat.auth.dto.RedirectDto
+import com.example.langchat.auth.dto.*
+import com.example.langchat.auth.dto.kakao.KaKaoUserInfoRes
+import com.example.langchat.auth.dto.kakao.KakaoTokenResDto
 import com.example.langchat.auth.service.AuthService
-import org.springframework.beans.factory.annotation.Value
+import com.example.langchat.util.jwt.TokenProvider
 import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.util.LinkedMultiValueMap
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.ModelAttribute
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.awaitBody
-import org.springframework.web.util.UriComponentsBuilder
+import java.lang.Exception
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentMap
 
 @RestController
 @RequestMapping("/api/kakao")
 class AuthController (
     private val authService: AuthService,
-
-    @Value("\${kakao.api-key}") // String Template 때문에 "\" 사용
-    val apiKey: String
-
+    private val tokenProvider: TokenProvider,
 ) {
-    // 카카오 인가 코드 요청
-    @GetMapping("/authorize")
-    fun redirectToKakaoAuthorize(): ResponseEntity<Void> {
-        val destinationUri = UriComponentsBuilder
-            .fromUriString(KakaoUrl.KAKAO_AUTH_URL) // 1. 기본 URL 설정
-            .queryParam("response_type", "code") // 2. 파라미터 추가 (고정 값)
-            .queryParam("client_id", apiKey)
-            .queryParam("redirect_uri", KakaoUrl.REDIRECT_URL)
-            .encode() // 3. 파라미터 값을 URL 인코딩
-            .build()
-            .toUri() // 4. 최종적으로 URI 객체로 변환
+    private val tempStorage : ConcurrentHashMap<Long, KaKaoUserInfoRes> = ConcurrentHashMap()
 
-        // 302 Redirect 응답 생성
-        return ResponseEntity.status(HttpStatus.FOUND) // FOUND : 302 상태 코드
+    // 1. 카카오 인가 코드 요청
+    @GetMapping("/authorize")
+    fun authorize(): ResponseEntity<Void> {
+        val destinationUri = authService.makeAuthorizeUrl()
+
+        // 302 (FOUND) Redirect 응답 생성
+        return ResponseEntity.status(HttpStatus.FOUND)
             .location(destinationUri)
             .build()
     }
 
-
     // 2. 카카오가 사용자를 이리로 돌려보냄 (인가 코드와 함께)
-    @GetMapping("/redirect")
-    suspend fun handleRedirect(@ModelAttribute redirectDto: RedirectDto): String {
+    @GetMapping("/login")
+    suspend fun handleRedirect(@ModelAttribute redirectDto: RedirectDto): AuthResult {
 
-        // TODO: 토큰 요청에 필요한 인가 코드를 받았는지 확인하고, 토큰 요청을 수행
+        // 토큰 요청에 필요한 인가 코드를 받았으면 로그인을 진행한다.
         redirectDto.code?.let {
-            val kakaoTokenResDto: KakaoTokenResDto = authService.getKakaoToken(redirectDto); // 인가 코드를 사용하여 토큰 요청
-            val userInfoResDto = authService.getUserInfo(kakaoTokenResDto.accessToken)// 토큰 정보로 사용자 정보 조회
-            println(userInfoResDto)
+            val kakaoTokenResDto: KakaoTokenResDto = authService.getKakaoToken(redirectDto) // 인가 코드를 사용하여 토큰 요청한다.
+            val userInfoResDto = authService.getUserInfo(kakaoTokenResDto.accessToken)      // 토큰 정보로 사용자 정보 조회한다.
+            val result = authService.login(userInfoResDto.id) // 회원정보를 조회해서 서비스에 가입되어있는지 확인한다.
 
-            return "Login Success! Got Authorization Code: $it"
+            if(!result) { // 회원가입이 안된 경우
+                tempStorage[userInfoResDto.id] = userInfoResDto // 임시로 데이터를 저장해둔다.
+                return AuthResult.SignupRequired(tokenProvider.createAccessToken(userInfoResDto.id.toString())) // 임시 token 정보 제공
+            }
+            // 회원가입이 된 경우
+            val accessToken = tokenProvider.createAccessToken(userInfoResDto.id.toString())
+            val refreshToken = tokenProvider.createRefreshToken() // db 에 저장 필요
+            return AuthResult.LoginSuccess(accessToken, refreshToken, userInfoResDto)
         }
 
-        // 인가 코드를 받지 못한 경우 (예: 사용자가 동의를 거부한 경우)
-        println("No authorization code received")
-        println(redirectDto)
-
-        return "No authorization code received"
+        throw Exception("No authorization code received")
     }
 
+    @PostMapping("/register") // 회원가입이 안된 경우 이 API 로 요청한다.
+    fun register(@RequestBody registerResDto: RegisterResDto) : AuthResult {
+
+        // token 이 유효하다면
+        tokenProvider.validateTokenAndGetSubject(registerResDto.signUpToken)?.let { it ->
+            val userInfo = tempStorage[it.toLong()]
+            userInfo.let {
+                authService.register(registerResDto, it!!)
+            }
+
+            // 회원가입이 완료되었으면 로그인 처리
+            val accessToken = tokenProvider.createAccessToken(it)
+            val refreshToken = tokenProvider.createRefreshToken() // db 에 저장 필요
+            tempStorage.remove(it.toLong())
+
+            return  AuthResult.LoginSuccess(accessToken, refreshToken, userInfo)
+        }
+
+        throw Exception("No authorization code received")
+    }
+
+    @PostMapping("/unlink")
+    suspend fun unlinkByAdmin (@RequestParam userId:Long) : UnlinkResDto {
+        return authService.unlinkByAdmin(userId)
+    }
 }

@@ -1,4 +1,4 @@
-package com.example.langchat.auth.dto
+package com.example.langchat.auth.dto.kakao
 
 import com.fasterxml.jackson.annotation.JsonProperty
 
