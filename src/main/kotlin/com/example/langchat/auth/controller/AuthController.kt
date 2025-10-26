@@ -20,7 +20,7 @@ import java.lang.Exception
 import java.util.concurrent.ConcurrentHashMap
 
 @RestController
-@RequestMapping("/api/kakao")
+@RequestMapping("/api/auth/kakao")
 class AuthController (
     private val authService: AuthService,
     private val tokenProvider: TokenProvider,

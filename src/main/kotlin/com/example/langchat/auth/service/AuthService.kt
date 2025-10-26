@@ -93,14 +93,14 @@ class AuthService (
 
     // 회원가입 처리
     fun register(registerResDto: RegisterResDto, userInfoRes: KaKaoUserInfoRes) {
+
         val newUser = User(
             id = userInfoRes.id,
             name = registerResDto.name
         )
-        .apply {
-            this.profileImageUrl = userInfoRes.kakaoProperties?.profileImage
-            // 로그인 타입은 "KAKAO"로 고정하거나, 다른 로직이 있다면 추가
-            this.loginType = "KAKAO"
+        .apply { // builder 패턴과 유사한 스코프 함수
+            profileImageUrl = userInfoRes.kakaoProperties?.profileImage
+            loginType = "KAKAO"
         }
 
         authRepository.save(newUser)

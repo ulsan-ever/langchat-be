@@ -1,5 +1,6 @@
 package com.example.langchat.util.jwt
 
+import com.example.langchat.common.exception.auth.JwtValidationException
 import io.jsonwebtoken.Jwts
 import io.jsonwebtoken.security.Keys
 import org.springframework.beans.factory.annotation.Value
@@ -28,6 +29,7 @@ class TokenProvider (
         return createToken(null, refreshTokenExpirationDays, ChronoUnit.DAYS)
     }
 
+    // JWT 생성
     private fun createToken(subject: String?, expiration: Long, unit: ChronoUnit): String {
         val now = Instant.now()
         val expirationDate = now.plus(expiration, unit)
@@ -43,6 +45,7 @@ class TokenProvider (
         return builder.compact() // 토큰을 만들어 반환
     }
 
+    // 토큰 검증 및 Subject(유저 ID) 추출
     fun validateTokenAndGetSubject(token: String): String? {
         return try {
             Jwts.parser()
@@ -51,9 +54,8 @@ class TokenProvider (
                 .parseSignedClaims(token)
                 .payload
                 .subject
-        } catch (e: Exception) {
-            // 유효하지 않은 토큰
-            null
+        } catch (e: Exception) { // 토큰이 유효하지 않은 경우
+            throw JwtValidationException()
         }
     }
 
