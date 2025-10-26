@@ -6,7 +6,7 @@ data class ApiResponse<T>(
     val data: T?         // 실제 데이터
 )
 
-// 이제 success(), fail() 함수는 필요 없거나, ApiResponse 생성하는 팩토리 역할만 합니다.
+// ApiResponse 객체를 생성하는 메소드
 fun <T> createApiResponse(code: String, message: String, data: T? = null): ApiResponse<T> {
     return ApiResponse(code, message, data)
 }
