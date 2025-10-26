@@ -8,6 +8,7 @@ import org.springframework.web.reactive.function.client.WebClient
 import reactor.netty.http.client.HttpClient
 import java.time.Duration
 
+// 비동기 http 요청을 보내기 위한 WebClient 설정
 @Configuration
 class WebClientConfig {
     @Bean
